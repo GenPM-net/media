@@ -32,34 +32,33 @@ const u32be = (b: Uint8Array, i: number) => ((b[i]! << 24) >>> 0) + (b[i + 1]! <
 const u16le = (b: Uint8Array, i: number) => b[i]! | (b[i + 1]! << 8);
 const u24le = (b: Uint8Array, i: number) => b[i]! | (b[i + 1]! << 8) | (b[i + 2]! << 16);
 
-/** Ancho y alto de JPEG, PNG, GIF y WebP leyendo solo las cabeceras. */
+/** Ancho y alto de JPEG, PNG, GIF y WebP leyendo solo las cabeceras. Null si faltan bytes o la estructura no cuadra. */
 export function imageSize(b: Uint8Array, type: SniffedType): { width: number; height: number } | null {
-  try {
-    if (type === 'image/png') return { width: u32be(b, 16), height: u32be(b, 20) };
-    if (type === 'image/gif') return { width: u16le(b, 6), height: u16le(b, 8) };
-    if (type === 'image/webp') {
-      const kind = ascii(b, 12, 4);
-      if (kind === 'VP8X') return { width: u24le(b, 24) + 1, height: u24le(b, 27) + 1 };
-      if (kind === 'VP8 ') return { width: u16le(b, 26) & 0x3fff, height: u16le(b, 28) & 0x3fff };
-      if (kind === 'VP8L') {
-        const bits = b[21]! | (b[22]! << 8) | (b[23]! << 16) | (b[24]! << 24);
-        return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
-      }
-      return null;
+  if (type === 'image/png') return b.length < 24 ? null : { width: u32be(b, 16), height: u32be(b, 20) };
+  if (type === 'image/gif') return b.length < 10 ? null : { width: u16le(b, 6), height: u16le(b, 8) };
+  if (type === 'image/webp') {
+    const kind = ascii(b, 12, 4);
+    if (kind === 'VP8X') return b.length < 30 ? null : { width: u24le(b, 24) + 1, height: u24le(b, 27) + 1 };
+    if (kind === 'VP8 ') return b.length < 30 ? null : { width: u16le(b, 26) & 0x3fff, height: u16le(b, 28) & 0x3fff };
+    if (kind === 'VP8L') {
+      if (b.length < 25) return null;
+      const bits = (b[21]! | (b[22]! << 8) | (b[23]! << 16) | (b[24]! << 24)) >>> 0;
+      return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
     }
-    if (type === 'image/jpeg') {
-      let i = 2;
-      while (i + 9 < b.length) {
-        if (b[i] !== 0xff) return null;
-        const marker = b[i + 1]!;
-        const len = u16be(b, i + 2);
-        if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
-          return { height: u16be(b, i + 5), width: u16be(b, i + 7) };
-        i += 2 + len;
-      }
-    }
-  } catch {
     return null;
+  }
+  if (type === 'image/jpeg') {
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) return null;
+      const marker = b[i + 1]!;
+      const len = u16be(b, i + 2);
+      // Longitud imposible o más allá del final: archivo truncado o manipulado.
+      if (len < 2 || i + 2 + len > b.length) return null;
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+        return { height: u16be(b, i + 5), width: u16be(b, i + 7) };
+      i += 2 + len;
+    }
   }
   return null;
 }

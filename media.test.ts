@@ -11,12 +11,15 @@ import {
   createUpload,
   imageFor,
   deleteMedia,
+  getMedia,
   imageSize,
   imageUrl,
   imgAttrs,
+  MalformedImageError,
   MediaError,
   mediaAdminResource,
   sniff,
+  stagingKey,
   stripMetadata,
   updateMedia,
 } from './index.ts';
@@ -89,6 +92,40 @@ describe('sniffing, sizes and metadata', () => {
   });
 });
 
+describe('malformed files (no infinite loops, no out-of-bounds sizes)', () => {
+  // WebP de 24 bytes con un chunk que declara 0xFFFFFFF8 bytes: leído con signo daba `end = i` y un bucle infinito.
+  const evilWebp = bytes('RIFF', u32le(16), 'WEBP', 'EXIF', u32le(0xfffffff8), [0, 0, 0, 0]);
+  const evilPng = bytes('\x89PNG\r\n\x1a\n', [...u32(0xfffffff0), ...[...'tEXt'].map((c) => c.charCodeAt(0)), 0, 0, 0, 0]);
+  const evilJpeg = bytes([0xff, 0xd8], [0xff, 0xe1, 0xff, 0xff], 'Exif', [0xff, 0xd9]);
+  const zeroLenJpeg = bytes([0xff, 0xd8], [0xff, 0xe0, 0, 0], [0xff, 0xe0, 0, 0], [0xff, 0xe0, 0, 0]);
+
+  it('stripMetadata rejects chunks longer than the file instead of looping', () => {
+    expect(evilWebp.length).toBe(24);
+    const started = Date.now();
+    expect(() => stripMetadata(evilWebp, 'image/webp')).toThrow(MalformedImageError);
+    expect(() => stripMetadata(evilPng, 'image/png')).toThrow(MalformedImageError);
+    expect(() => stripMetadata(evilJpeg, 'image/jpeg')).toThrow(MalformedImageError);
+    expect(() => stripMetadata(zeroLenJpeg, 'image/jpeg')).toThrow(MalformedImageError);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it('imageSize returns null for truncated headers', () => {
+    expect(imageSize(evilWebp, 'image/webp')).toBeNull();
+    expect(imageSize(bytes('\x89PNG\r\n\x1a\n'), 'image/png')).toBeNull();
+    expect(imageSize(bytes('GIF89a'), 'image/gif')).toBeNull();
+    expect(imageSize(bytes('RIFF', u32le(8), 'WEBP', 'VP8X', [1, 2]), 'image/webp')).toBeNull();
+    expect(imageSize(bytes([0xff, 0xd8], [0xff, 0xe0, 0x7f, 0xff], [0, 0, 0, 0, 0, 0, 0, 0]), 'image/jpeg')).toBeNull();
+  });
+
+  it('confirmUpload rejects a crafted WebP quickly and never publishes it', async () => {
+    const m = await upload(evilWebp, 'image/webp');
+    await expect(confirmUpload(m.id)).rejects.toMatchObject({ code: 'type_mismatch' });
+    expect((await getMedia(m.id))?.status).toBe('rejected');
+    expect(await storage.get(m.key)).toBeNull();
+    expect(await storage.get(stagingKey(m))).toBeNull();
+  });
+});
+
 describe('upload flow', () => {
   it('uploads with a signed URL, confirms, strips metadata and stores dimensions', async () => {
     const m = await upload(png, 'image/png', '../../evil name.png');
@@ -99,6 +136,27 @@ describe('upload flow', () => {
     const stored = await storage.get(m.key);
     expect(contains(new Uint8Array(await new Response(stored!.body).arrayBuffer()), 'GPS')).toBe(false);
     expect(ready.size).toBeLessThan(png.length);
+  });
+
+  it('the signed upload URL targets a private staging key; replaying it after confirm cannot swap the public file', async () => {
+    const { media: m, upload: up } = await createUpload({ filename: 'p.png', mime: 'image/png', size: png.length });
+    const put = (body: Uint8Array) =>
+      handleLocalUpload(new Request(up.url, { method: 'PUT', headers: up.headers, body: body as Uint8Array<ArrayBuffer> }), storage, SECRET);
+    expect((await put(png)).status).toBe(200);
+    expect(await storage.get(m.key)).toBeNull(); // nada público antes de confirmar
+    expect(await storage.head(stagingKey(m))).not.toBeNull();
+    const ready = await confirmUpload(m.id);
+    expect(ready.key).toBe(m.key);
+    expect(await storage.head(stagingKey(m))).toBeNull();
+    const published = new Uint8Array(await new Response((await storage.get(m.key))!.body).arrayBuffer());
+    // Reenvío de la misma URL firmada con otro contenido del mismo tamaño (HTML con EXIF, lo que sea).
+    const evil = new Uint8Array(png.length).fill(0x41);
+    evil.set(bytes('<html><script>alert(1)</script>'));
+    expect((await put(evil)).status).toBe(200);
+    expect((await confirmUpload(m.id)).status).toBe('ready');
+    const after = new Uint8Array(await new Response((await storage.get(m.key))!.body).arrayBuffer());
+    expect(after).toEqual(published);
+    expect(contains(after, 'script')).toBe(false);
   });
 
   it('rejects unsupported types, oversize files and content that does not match the declared type', async () => {

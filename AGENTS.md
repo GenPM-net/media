@@ -1,19 +1,21 @@
 # @core/media — rules for AI agents
 
 ## Purpose
-Media library on top of @core/storage: the browser uploads directly with a signed URL, then `confirmUpload` checks
-the real file type by its bytes (declared type must match), removes EXIF/GPS/XMP from JPEG, PNG and WebP without
-re-encoding, and stores dimensions. Alt text and focal point per file, responsive URLs (Cloudflare Images or Next.js
+Media library on top of @core/storage: the browser uploads directly with a signed URL to a private staging key
+(`uploads/pending/<id>.<ext>`), then `confirmUpload` checks the real file type by its bytes (declared type must match),
+removes EXIF/GPS/XMP from JPEG, PNG and WebP without re-encoding, writes the validated bytes to the final `public/`
+key, deletes the staging copy and stores dimensions. Malformed images (chunk lengths past the end) are rejected. Alt text and focal point per file, responsive URLs (Cloudflare Images or Next.js
 image optimizer) and ready `<img>` attributes. SVG and HTML are never accepted. Table: `media`.
 
 ## Map
 - `index.ts` — public API: `createUpload`, `confirmUpload`, `getMedia`, `updateMedia`, `deleteMedia`, `imageUrl`, `imgAttrs`, `mediaAdminResource`.
 - `remote.ts` — `importRemoteImage(url, { allowedHosts })` for server-side imports (https, host allowlist, size limit).
-- `library.ts` — upload flow and allowed types. `sniff.ts`, `strip.ts` — byte checks. `urls.ts` — URLs and `<img>` attributes.
+- `library.ts` — upload flow, allowed types and `stagingKey(media)`. `sniff.ts`, `strip.ts` — byte checks. `urls.ts` — URLs and `<img>` attributes.
 - `adapters/hono.ts` — `mediaRoutes({ authorize })`. `adapters/next.ts` — `createUploadRoute`, `confirmUploadRoute`.
 
 ## Integration
-1. Configure @core/storage first (bucket CORS must allow `PUT` from the site). Optional `MEDIA_TRANSFORM`:
+1. Configure @core/storage first (bucket CORS must allow `PUT` from the site). Recommended: a bucket lifecycle rule
+   that deletes `uploads/pending/` objects after 1 day (abandoned or replayed uploads). Optional `MEDIA_TRANSFORM`:
    `cloudflare` (Images transformations enabled on the zone), `vercel` (Next.js image optimizer; add the storage host to `images.remotePatterns`) or `none`.
 2. Migrations as in `src/lib/db/AGENTS.md`.
 3. Mount the upload routes with an `authorize(req)` that returns `{ userId }` only for users with `media:create` (@core/rbac).
@@ -30,5 +32,7 @@ image optimizer) and ready `<img>` attributes. SVG and HTML are never accepted. 
 
 ## Don't
 - Don't accept files without `confirmUpload`; pending or rejected media must never be shown.
+- Don't presign uploads to the final `public/` key: a signed PUT can be replayed until it expires and would swap a
+  validated file for an unchecked one (served `immutable`). Upload to `stagingKey()`; only `confirmUpload` writes `public/`.
 - Don't allow SVG uploads or serve user files from the site's own origin without the storage route's sandbox headers.
 - Don't hotlink third-party images; copy them into storage first.

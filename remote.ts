@@ -6,7 +6,7 @@ import { getStorage } from '../storage/index.ts';
 import { ALLOWED, MediaError } from './library.ts';
 import { type Media, media } from './schema.ts';
 import { imageSize, sniff } from './sniff.ts';
-import { stripMetadata } from './strip.ts';
+import { MalformedImageError, stripMetadata } from './strip.ts';
 
 export type RemoteImageOptions = {
   /** Hosts exactos permitidos (`ae01.alicdn.com`) o sufijos con punto inicial (`.alicdn.com`). */
@@ -66,7 +66,12 @@ export async function importRemoteImage(url: string, opts: RemoteImageOptions, d
   }
   const type = sniff(bytes);
   if (!type || !type.startsWith('image/')) throw new MediaError('type_mismatch', 'not an image');
-  bytes = stripMetadata(bytes, type) as Uint8Array<ArrayBuffer>;
+  try {
+    bytes = stripMetadata(bytes, type) as Uint8Array<ArrayBuffer>;
+  } catch (e) {
+    if (e instanceof MalformedImageError) throw new MediaError('type_mismatch', `malformed ${type}`);
+    throw e;
+  }
   const dims = imageSize(bytes, type);
   const id = newId('med');
   const now = new Date();

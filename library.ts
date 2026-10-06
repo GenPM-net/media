@@ -4,7 +4,7 @@ import { type Executor, getDb, newId } from '../db/index.ts';
 import { getStorage, type PresignedUpload } from '../storage/index.ts';
 import { type Media, media } from './schema.ts';
 import { imageSize, type SniffedType, sniff } from './sniff.ts';
-import { stripMetadata } from './strip.ts';
+import { MalformedImageError, stripMetadata } from './strip.ts';
 import { imgAttrs } from './urls.ts';
 
 export class MediaError extends Error {
@@ -35,6 +35,12 @@ const isAllowed = (mime: string): mime is SniffedType => mime in ALLOWED;
 
 const FOLDER_RE = /^([a-z0-9][a-z0-9-]{0,40}(\/[a-z0-9][a-z0-9-]{0,40}){0,3})?$/;
 
+/**
+ * Clave privada donde sube el navegador. La URL firmada puede reutilizarse hasta que caduca, así que nunca apunta a la
+ * clave pública final: `confirmUpload` lee de aquí, valida y limpia, y escribe él mismo los bytes en `public/`.
+ */
+export const stagingKey = (m: Pick<Media, 'id' | 'mime'>) => `uploads/pending/${m.id}.${isAllowed(m.mime) ? ALLOWED[m.mime].ext : 'bin'}`;
+
 export type CreateUploadInput = { filename: string; mime: string; size: number; folder?: string; alt?: string; uploadedBy?: string | null };
 
 /** Reserva un medio `pending` y devuelve la URL firmada para subirlo directamente desde el navegador. */
@@ -52,7 +58,7 @@ export async function createUpload(input: CreateUploadInput, db: Executor = getD
     .insert(media)
     .values({ id, key, filename, mime: input.mime, size: input.size, folder, alt: (input.alt ?? '').slice(0, 500), uploadedBy: input.uploadedBy ?? null })
     .returning();
-  const upload = await getStorage().presignUpload(key, { contentType: input.mime, size: input.size, maxBytes });
+  const upload = await getStorage().presignUpload(stagingKey(row!), { contentType: input.mime, size: input.size, maxBytes });
   return { media: row!, upload };
 }
 
@@ -61,30 +67,36 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> 
 }
 
 /**
- * Tras la subida: comprueba que el archivo existe y que su contenido es del tipo declarado; si no, lo borra y lo
- * marca `rejected`. En imágenes elimina EXIF/GPS/XMP y guarda las dimensiones.
+ * Tras la subida: lee el archivo de la clave de subida privada y comprueba que su contenido es del tipo declarado; si
+ * no, lo borra y lo marca `rejected`. En imágenes elimina EXIF/GPS/XMP. Solo entonces escribe los bytes validados en
+ * la clave pública final, guarda las dimensiones y borra la copia de subida.
  */
 export async function confirmUpload(id: string, db: Executor = getDb()): Promise<Media> {
   const [row] = await db.select().from(media).where(eq(media.id, id));
   if (!row) throw new MediaError('not_found', `media ${id} not found`);
   if (row.status !== 'pending') return row;
   const storage = getStorage();
-  const obj = await storage.get(row.key);
+  const staged = stagingKey(row);
+  const obj = await storage.get(staged);
   if (!obj) throw new MediaError('invalid_state', 'file not uploaded yet');
   let bytes = await readAll(obj.body);
-  const type = sniff(bytes);
-  if (type !== row.mime) {
-    await storage.delete(row.key);
+  const reject = async (message: string) => {
+    await storage.delete(staged);
     await db.update(media).set({ status: 'rejected' }).where(eq(media.id, id));
-    throw new MediaError('type_mismatch', `content is ${type ?? 'unknown'}, declared ${row.mime}`);
-  }
+    return new MediaError('type_mismatch', message);
+  };
+  const type = sniff(bytes);
+  if (type !== row.mime) throw await reject(`content is ${type ?? 'unknown'}, declared ${row.mime}`);
   if (type.startsWith('image/')) {
-    const stripped = stripMetadata(bytes, type);
-    if (stripped.length !== bytes.length) {
-      await storage.put(row.key, stripped, { contentType: type, cacheControl: 'public, max-age=31536000, immutable' });
-      bytes = stripped;
+    try {
+      bytes = stripMetadata(bytes, type);
+    } catch (e) {
+      if (e instanceof MalformedImageError) throw await reject(`malformed ${type}`);
+      throw e;
     }
   }
+  await storage.put(row.key, bytes, { contentType: type, cacheControl: 'public, max-age=31536000, immutable' });
+  await storage.delete(staged);
   const dims = type.startsWith('image/') ? imageSize(bytes, type) : null;
   const [updated] = await db
     .update(media)
@@ -126,6 +138,7 @@ export async function deleteMedia(id: string, db: Executor = getDb()): Promise<v
   const row = await getMedia(id, db);
   if (!row) return;
   await getStorage().delete(row.key);
+  if (row.status === 'pending') await getStorage().delete(stagingKey(row));
   await db.delete(media).where(eq(media.id, id));
 }
 
