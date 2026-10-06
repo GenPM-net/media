@@ -1,6 +1,6 @@
 // URLs de imagen responsivas según el servicio de transformación (MEDIA_TRANSFORM) y atributos <img> listos.
-import { getStorage } from '../storage/index.js';
-import type { Media } from './schema.js';
+import { getStorage } from '../storage/index.ts';
+import type { Media } from './schema.ts';
 
 export type Transform = 'none' | 'cloudflare' | 'vercel';
 export type ImageOptions = { width?: number; height?: number; fit?: 'cover' | 'contain' | 'scale-down'; quality?: number };

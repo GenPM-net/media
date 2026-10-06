@@ -1,11 +1,11 @@
 // Biblioteca de medios: subida directa firmada, confirmación con comprobación del tipo real, limpieza de metadatos.
 import { eq } from 'drizzle-orm';
-import { type Executor, getDb, newId } from '../db/index.js';
-import { getStorage, type PresignedUpload } from '../storage/index.js';
-import { type Media, media } from './schema.js';
-import { imageSize, type SniffedType, sniff } from './sniff.js';
-import { stripMetadata } from './strip.js';
-import { imgAttrs } from './urls.js';
+import { type Executor, getDb, newId } from '../db/index.ts';
+import { getStorage, type PresignedUpload } from '../storage/index.ts';
+import { type Media, media } from './schema.ts';
+import { imageSize, type SniffedType, sniff } from './sniff.ts';
+import { stripMetadata } from './strip.ts';
+import { imgAttrs } from './urls.ts';
 
 export class MediaError extends Error {
   constructor(

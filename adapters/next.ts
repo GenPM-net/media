@@ -1,7 +1,7 @@
 // Adaptador Next.js:
 //   app/api/media/uploads/route.ts              → export const POST = createUploadRoute(authorize);
 //   app/api/media/uploads/[id]/confirm/route.ts → export const POST = confirmUploadRoute(authorize);
-import { type Authorize, handleConfirmUpload, handleCreateUpload } from './http.js';
+import { type Authorize, handleConfirmUpload, handleCreateUpload } from './http.ts';
 
 export const createUploadRoute = (authorize: Authorize) => (req: Request) => handleCreateUpload(req, authorize);
 

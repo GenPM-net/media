@@ -1,5 +1,5 @@
 // Elimina metadatos (EXIF con GPS, XMP, IPTC, comentarios) de JPEG, PNG y WebP sin recodificar la imagen.
-import type { SniffedType } from './sniff.js';
+import type { SniffedType } from './sniff.ts';
 
 const concat = (parts: Uint8Array[]) => {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));

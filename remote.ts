@@ -1,12 +1,12 @@
 // Importa una imagen desde una URL remota a la biblioteca (para importaciones de proveedores o migraciones).
 // Protección SSRF: solo https, solo hosts de la lista permitida (también tras redirecciones), tamaño y tiempo máximos,
 // y el contenido debe ser una imagen real (se comprueba por bytes y se le quitan los metadatos).
-import { type Executor, getDb, newId } from '../db/index.js';
-import { getStorage } from '../storage/index.js';
-import { ALLOWED, MediaError } from './library.js';
-import { type Media, media } from './schema.js';
-import { imageSize, sniff } from './sniff.js';
-import { stripMetadata } from './strip.js';
+import { type Executor, getDb, newId } from '../db/index.ts';
+import { getStorage } from '../storage/index.ts';
+import { ALLOWED, MediaError } from './library.ts';
+import { type Media, media } from './schema.ts';
+import { imageSize, sniff } from './sniff.ts';
+import { stripMetadata } from './strip.ts';
 
 export type RemoteImageOptions = {
   /** Hosts exactos permitidos (`ae01.alicdn.com`) o sufijos con punto inicial (`.alicdn.com`). */

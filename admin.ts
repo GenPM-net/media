@@ -2,11 +2,11 @@
 // La creación va por `createUpload` + `confirmUpload` (rutas en adapters/), no por el formulario genérico.
 import { and, count, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import type { AdminContext, AdminResource } from '../contracts/index.js';
-import { getDb } from '../db/index.js';
-import { deleteMedia, getMedia, MediaError, updateMedia } from './library.js';
-import { type Media, media } from './schema.js';
-import { mediaUrl } from './urls.js';
+import type { AdminContext, AdminResource } from '../contracts/index.ts';
+import { getDb } from '../db/index.ts';
+import { deleteMedia, getMedia, MediaError, updateMedia } from './library.ts';
+import { type Media, media } from './schema.ts';
+import { mediaUrl } from './urls.ts';
 
 async function need(ctx: AdminContext, action: string) {
   if (!(await ctx.can(`media:${action}`))) throw new MediaError('forbidden', `forbidden: media:${action}`);

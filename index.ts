@@ -1,5 +1,5 @@
 // @core/media — API pública. Importa desde aquí; rutas de subida en adapters/hono.ts y adapters/next.ts.
-export { mediaAdminResource } from './admin.js';
+export { mediaAdminResource } from './admin.ts';
 export {
   ALLOWED,
   type CreateUploadInput,
@@ -10,9 +10,9 @@ export {
   imageFor,
   MediaError,
   updateMedia,
-} from './library.js';
-export { type Media, media } from './schema.js';
-export { importRemoteImage, type RemoteImageOptions } from './remote.js';
-export { imageSize, type SniffedType, sniff } from './sniff.js';
-export { stripMetadata } from './strip.js';
-export { DEFAULT_WIDTHS, type ImageOptions, type ImgAttrs, imageUrl, imgAttrs, mediaUrl, type Transform } from './urls.js';
+} from './library.ts';
+export { type Media, media } from './schema.ts';
+export { importRemoteImage, type RemoteImageOptions } from './remote.ts';
+export { imageSize, type SniffedType, sniff } from './sniff.ts';
+export { stripMetadata } from './strip.ts';
+export { DEFAULT_WIDTHS, type ImageOptions, type ImgAttrs, imageUrl, imgAttrs, mediaUrl, type Transform } from './urls.ts';

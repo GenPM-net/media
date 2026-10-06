@@ -1,6 +1,6 @@
 // Rutas de subida comunes: POST /uploads y POST /uploads/:id/confirm. `authorize` decide quién puede subir.
 import { z } from 'zod';
-import { confirmUpload, createUpload, MediaError } from '../index.js';
+import { confirmUpload, createUpload, MediaError } from '../index.ts';
 
 export type Authorize = (req: Request) => Promise<{ userId: string } | null>;
 

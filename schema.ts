@@ -1,6 +1,6 @@
 // Tablas de @core/media. Las recoge drizzle-kit vía src/lib/db/drizzle.config.ts.
 import { index, integer, pgTable, real, text } from 'drizzle-orm/pg-core';
-import { primaryId, timestamps } from '../db/index.js';
+import { primaryId, timestamps } from '../db/index.ts';
 
 export const media = pgTable(
   'media',

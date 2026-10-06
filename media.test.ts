@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { AdminContext } from '../contracts/index.js';
-import { testDb } from '../db/__fixtures__/pglite.js';
-import { backendStorage, getStorage, handleLocalUpload, memoryBackend, setStorage, type StorageProvider } from '../storage/index.js';
-import { mediaRoutes } from './adapters/hono.js';
-import { confirmUploadRoute, createUploadRoute } from './adapters/next.js';
-import * as schema from './schema.js';
+import type { AdminContext } from '../contracts/index.ts';
+import { testDb } from '../db/__fixtures__/pglite.ts';
+import { backendStorage, getStorage, handleLocalUpload, memoryBackend, setStorage, type StorageProvider } from '../storage/index.ts';
+import { mediaRoutes } from './adapters/hono.ts';
+import { confirmUploadRoute, createUploadRoute } from './adapters/next.ts';
+import * as schema from './schema.ts';
 import {
   confirmUpload,
   createUpload,
@@ -19,7 +19,7 @@ import {
   sniff,
   stripMetadata,
   updateMedia,
-} from './index.js';
+} from './index.ts';
 
 const SECRET = 's'.repeat(40);
 const bytes = (...parts: Array<number[] | string>) =>
@@ -170,7 +170,7 @@ describe('remote images (SSRF guard)', () => {
   const serve = (routes: Record<string, () => Response>) =>
     (async (url: string) => (routes[url] ?? (() => new Response('nope', { status: 404 })))()) as unknown as typeof fetch;
   it('imports allowed https images, follows same-policy redirects and strips metadata', async () => {
-    const { importRemoteImage } = await import('./index.js');
+    const { importRemoteImage } = await import('./index.ts');
     const f = serve({
       'https://cdn.supplier.test/a.jpg': () => new Response(null, { status: 302, headers: { location: '/b.jpg' } }),
       'https://cdn.supplier.test/b.jpg': () => new Response(jpeg as Uint8Array<ArrayBuffer>, { headers: { 'content-type': 'image/jpeg' } }),
@@ -182,7 +182,7 @@ describe('remote images (SSRF guard)', () => {
   });
 
   it('rejects other hosts (also after redirects), http, credentials, non-images and oversize files', async () => {
-    const { importRemoteImage } = await import('./index.js');
+    const { importRemoteImage } = await import('./index.ts');
     const f = serve({
       'https://cdn.supplier.test/redirect': () => new Response(null, { status: 301, headers: { location: 'https://169.254.169.254/latest/meta-data' } }),
       'https://cdn.supplier.test/page': () => new Response('<html></html>'),
