@@ -1,0 +1,35 @@
+{
+  "$": 1,
+  "n": "@core/media",
+  "v": "1.0.0",
+  "s": {
+    "en": "Media library: signed direct uploads, real file-type checks, EXIF/GPS removal, alt text, focal point, srcset",
+    "es": "Biblioteca de medios: subida directa firmada, tipo real comprobado, sin EXIF/GPS, texto alternativo, punto focal, srcset",
+    "pt-BR": "Biblioteca de mídia: upload direto assinado, tipo real verificado, sem EXIF/GPS, texto alternativo, ponto focal, srcset",
+    "fr": "Médiathèque : envoi direct signé, vrai type vérifié, EXIF/GPS supprimés, texte alternatif, point focal, srcset",
+    "de": "Medienbibliothek: signierte Direkt-Uploads, echte Typprüfung, EXIF/GPS entfernt, Alt-Text, Fokuspunkt, srcset",
+    "ja": "メディアライブラリ：署名付き直接アップロード、実ファイル形式の検証、EXIF/GPS 除去、代替テキスト、焦点、srcset",
+    "zh-CN": "媒体库：签名直传、真实文件类型校验、去除 EXIF/GPS、替代文本、焦点和 srcset",
+    "ko": "미디어 라이브러리: 서명된 직접 업로드, 실제 파일 형식 확인, EXIF/GPS 제거, 대체 텍스트, 초점, srcset"
+  },
+  "d": "src/lib/media",
+  "l": "MIT",
+  "k": [
+    "media",
+    "uploads",
+    "images",
+    "cms",
+    "accessibility"
+  ],
+  "g": {
+    "@core/db": "^1.0.0",
+    "@core/storage": "^1.0.0",
+    "@core/contracts": "^1.0.0"
+  },
+  "p": {
+    "zod": "^4.0.0"
+  },
+  "e": [
+    "MEDIA_TRANSFORM"
+  ]
+}
