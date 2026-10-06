@@ -6,6 +6,7 @@ import type { AdminContext, AdminResource } from '../contracts/index.js';
 import { getDb } from '../db/index.js';
 import { deleteMedia, getMedia, MediaError, updateMedia } from './library.js';
 import { type Media, media } from './schema.js';
+import { mediaUrl } from './urls.js';
 
 async function need(ctx: AdminContext, action: string) {
   if (!(await ctx.can(`media:${action}`))) throw new MediaError('forbidden', `forbidden: media:${action}`);
@@ -34,6 +35,7 @@ export const mediaAdminResource: AdminResource<Media> = {
   ],
   input: Patch,
   title: (m) => m.filename,
+  links: (m) => [{ label: 'Open file', href: mediaUrl(m) }],
   async list(q, ctx) {
     await need(ctx, 'read');
     const conds: SQL[] = [eq(media.status, 'ready')];
