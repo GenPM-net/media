@@ -8,6 +8,7 @@ image optimizer) and ready `<img>` attributes. SVG and HTML are never accepted. 
 
 ## Map
 - `index.ts` — public API: `createUpload`, `confirmUpload`, `getMedia`, `updateMedia`, `deleteMedia`, `imageUrl`, `imgAttrs`, `mediaAdminResource`.
+- `remote.ts` — `importRemoteImage(url, { allowedHosts })` for server-side imports (https, host allowlist, size limit).
 - `library.ts` — upload flow and allowed types. `sniff.ts`, `strip.ts` — byte checks. `urls.ts` — URLs and `<img>` attributes.
 - `adapters/hono.ts` — `mediaRoutes({ authorize })`. `adapters/next.ts` — `createUploadRoute`, `confirmUploadRoute`.
 

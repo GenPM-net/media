@@ -164,3 +164,35 @@ describe('admin and routes', () => {
     expect(bad.status).toBe(400);
   });
 });
+
+describe('remote images (SSRF guard)', () => {
+  const serve = (routes: Record<string, () => Response>) =>
+    (async (url: string) => (routes[url] ?? (() => new Response('nope', { status: 404 })))()) as unknown as typeof fetch;
+  it('imports allowed https images, follows same-policy redirects and strips metadata', async () => {
+    const { importRemoteImage } = await import('./index.js');
+    const f = serve({
+      'https://cdn.supplier.test/a.jpg': () => new Response(null, { status: 302, headers: { location: '/b.jpg' } }),
+      'https://cdn.supplier.test/b.jpg': () => new Response(jpeg as Uint8Array<ArrayBuffer>, { headers: { 'content-type': 'image/jpeg' } }),
+    });
+    const m = await importRemoteImage('https://cdn.supplier.test/a.jpg', { allowedHosts: ['.supplier.test'], fetch: f, alt: 'Mug' });
+    expect(m).toMatchObject({ status: 'ready', mime: 'image/jpeg', width: 80, height: 50, alt: 'Mug', filename: 'b.jpg' });
+    const stored = await storage.get(m.key);
+    expect(contains(new Uint8Array(await new Response(stored!.body).arrayBuffer()), 'GPS')).toBe(false);
+  });
+
+  it('rejects other hosts (also after redirects), http, credentials, non-images and oversize files', async () => {
+    const { importRemoteImage } = await import('./index.js');
+    const f = serve({
+      'https://cdn.supplier.test/redirect': () => new Response(null, { status: 301, headers: { location: 'https://169.254.169.254/latest/meta-data' } }),
+      'https://cdn.supplier.test/page': () => new Response('<html></html>'),
+      'https://cdn.supplier.test/big.png': () => new Response(png as Uint8Array<ArrayBuffer>, { headers: { 'content-length': String(50 * 1024 * 1024) } }),
+    });
+    const opts = { allowedHosts: ['cdn.supplier.test'], fetch: f };
+    await expect(importRemoteImage('https://evil.test/x.png', opts)).rejects.toThrow(/not allowed/);
+    await expect(importRemoteImage('http://cdn.supplier.test/x.png', opts)).rejects.toThrow(/not allowed/);
+    await expect(importRemoteImage('https://u:p@cdn.supplier.test/x.png', opts)).rejects.toThrow(/not allowed/);
+    await expect(importRemoteImage('https://cdn.supplier.test/redirect', opts)).rejects.toThrow(/not allowed/);
+    await expect(importRemoteImage('https://cdn.supplier.test/page', opts)).rejects.toMatchObject({ code: 'type_mismatch' });
+    await expect(importRemoteImage('https://cdn.supplier.test/big.png', opts)).rejects.toMatchObject({ code: 'too_large' });
+  });
+});
