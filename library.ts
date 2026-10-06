@@ -5,6 +5,7 @@ import { getStorage, type PresignedUpload } from '../storage/index.js';
 import { type Media, media } from './schema.js';
 import { imageSize, type SniffedType, sniff } from './sniff.js';
 import { stripMetadata } from './strip.js';
+import { imgAttrs } from './urls.js';
 
 export class MediaError extends Error {
   constructor(
@@ -126,4 +127,17 @@ export async function deleteMedia(id: string, db: Executor = getDb()): Promise<v
   if (!row) return;
   await getStorage().delete(row.key);
   await db.delete(media).where(eq(media.id, id));
+}
+
+/** Imagen lista para `<img>` (src, srcSet, sizes, dimensiones y alt) o null si no existe o no está lista. */
+export async function imageFor(
+  id: string | null | undefined,
+  opts: { sizes?: string; alt?: string; widths?: number[] } = {},
+  db: Executor = getDb(),
+): Promise<{ src: string; alt: string; width?: number; height?: number; srcSet?: string; sizes?: string } | null> {
+  if (!id) return null;
+  const m = await getMedia(id, db);
+  if (!m || m.status !== 'ready') return null;
+  const a = imgAttrs(m, { ...(opts.sizes && { sizes: opts.sizes }), ...(opts.widths && { widths: opts.widths }) });
+  return { src: a.src, alt: opts.alt ?? a.alt, ...(a.width && { width: a.width }), ...(a.height && { height: a.height }), ...(a.srcSet && { srcSet: a.srcSet }), ...(a.sizes && { sizes: a.sizes }) };
 }

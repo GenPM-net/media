@@ -9,6 +9,7 @@ import * as schema from './schema.js';
 import {
   confirmUpload,
   createUpload,
+  imageFor,
   deleteMedia,
   imageSize,
   imageUrl,
@@ -194,5 +195,16 @@ describe('remote images (SSRF guard)', () => {
     await expect(importRemoteImage('https://cdn.supplier.test/redirect', opts)).rejects.toThrow(/not allowed/);
     await expect(importRemoteImage('https://cdn.supplier.test/page', opts)).rejects.toMatchObject({ code: 'type_mismatch' });
     await expect(importRemoteImage('https://cdn.supplier.test/big.png', opts)).rejects.toMatchObject({ code: 'too_large' });
+  });
+});
+
+describe('imageFor', () => {
+  it('returns ready images only, with alt override', async () => {
+    const m = await upload(png, 'image/png', 'pic');
+    await confirmUpload(m.id);
+    expect(await imageFor(m.id, { alt: 'A picture' })).toMatchObject({ alt: 'A picture', width: 640, height: 480 });
+    expect(await imageFor(null)).toBeNull();
+    const pending = await createUpload({ filename: 'x.png', mime: 'image/png', size: 10 });
+    expect(await imageFor(pending.media.id)).toBeNull();
   });
 });

@@ -7,6 +7,7 @@ export {
   createUpload,
   deleteMedia,
   getMedia,
+  imageFor,
   MediaError,
   updateMedia,
 } from './library.js';
