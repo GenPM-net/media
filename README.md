@@ -24,6 +24,30 @@ removes EXIF/GPS/XMP from JPEG, PNG and WebP without re-encoding, writes the val
 key, deletes the staging copy and stores dimensions. Malformed images (chunk lengths past the end) are rejected. Alt text and focal point per file, responsive URLs (Cloudflare Images or Next.js
 image optimizer) and ready `<img>` attributes. SVG and HTML are never accepted. Table: `media`.
 
+## Setup
+
+After `genpm add`, follow these steps (your AI agent finds the same steps in `src/lib/media/AGENTS.md` and can do them for you):
+
+1. Configure @core/storage first (bucket CORS must allow `PUT` from the site). Recommended: a bucket lifecycle rule
+   that deletes `uploads/pending/` objects after 1 day (abandoned or replayed uploads). Optional `MEDIA_TRANSFORM`:
+   `cloudflare` (Images transformations enabled on the zone), `vercel` (Next.js image optimizer; add the storage host to `images.remotePatterns`) or `none`.
+2. Migrations as in `src/lib/db/AGENTS.md`.
+3. Mount the upload routes with an `authorize(req)` that returns `{ userId }` only for users with `media:create` (@core/rbac).
+4. Upload from the browser: `POST /api/media/uploads` with `{ filename, mime, size }` → `PUT` the file to `upload.url`
+   with `upload.headers` → `POST /api/media/uploads/<id>/confirm`. Store the media `id` in your content.
+5. Render: `const m = await getMedia(id); <img {...imgAttrs(m, { sizes: '(min-width: 768px) 50vw, 100vw' })} />`.
+6. Add `mediaAdminResource` to `src/genpm/admin.ts`.
+7. Verify: upload a photo with GPS data; after confirm, the stored file has no EXIF and the row has width/height.
+
+## What's inside
+
+Paths are relative to `src/lib/media`.
+
+- `index.ts` — public API: `createUpload`, `confirmUpload`, `getMedia`, `updateMedia`, `deleteMedia`, `imageUrl`, `imgAttrs`, `mediaAdminResource`.
+- `remote.ts` — `importRemoteImage(url, { allowedHosts })` for server-side imports (https, host allowlist, size limit).
+- `library.ts` — upload flow, allowed types and `stagingKey(media)`. `sniff.ts`, `strip.ts` — byte checks. `urls.ts` — URLs and `<img>` attributes.
+- `adapters/hono.ts` — `mediaRoutes({ authorize })`. `adapters/next.ts` — `createUploadRoute`, `confirmUploadRoute`.
+
 ## At a glance
 
 - **GenPM dependencies** (installed with it): [@core/db](https://genpm.net/p/@core/db), [@core/storage](https://genpm.net/p/@core/storage), [@core/contracts](https://genpm.net/p/@core/contracts)

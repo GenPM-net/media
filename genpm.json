@@ -1,7 +1,7 @@
 {
   "$": 1,
   "n": "@core/media",
-  "v": "1.1.0",
+  "v": "1.1.1",
   "s": {
     "en": "Media library: signed direct uploads, real file-type checks, EXIF/GPS removal, alt text, focal point, srcset",
     "es": "Biblioteca de medios: subida directa firmada, tipo real comprobado, sin EXIF/GPS, texto alternativo, punto focal, srcset",
